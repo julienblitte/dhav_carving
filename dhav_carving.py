@@ -30,17 +30,9 @@ if sys.argv and len(sys.argv) > 0:
 	with open(options['input_file_name'],'r+') as file:
 		f__content__ = file.read()
 		file.close()
-	#####################################################################
-	# TODO -- INDICAR EM QUAL DVR FOI GRAVADO
-	#####################################################################
-	#
 	dvr_code = None
-	#
-	#####################################################################
-	# TODO -- INDICAR QUANTOS FRAMES FORAM RECUPERADOS
-	#####################################################################
-	print('[%s] ...Processing input file' % datetime.datetime.now())
 	num_recovered_frames = 0
+	print('[%s] ...Processing input file' % datetime.datetime.now())
 	if f__content__:
 
 		current_frames_file = ""
