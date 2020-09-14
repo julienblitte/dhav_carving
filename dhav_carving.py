@@ -81,7 +81,7 @@ if sys.argv and len(sys.argv) > 0:
 						current_frames_file  += str("%s\n" % current_file_frames)
 						compiled_frames_file += str("%s\n" % current_file_frames)
 						if current_frames_file:
-							ff_name = 'frame%s.txt' % frame_file_count
+							ff_name = 'frame%s.DAT' % frame_file_count
 							print('[%s] ...Saving %s' % (datetime.datetime.now(),ff_name))
 							num_recovered_frames += 1
 							with open(options['output_folder'] + ff_name,'w+') as file:
@@ -93,7 +93,7 @@ if sys.argv and len(sys.argv) > 0:
 
 		if compiled_frames_file:
 			print('[%s] ...Saving compiled_frames.txt' % datetime.datetime.now())
-			with open(options['output_folder'] + 'compiled_frames.txt','w+') as file:
+			with open(options['output_folder'] + 'compiled_frames.DAT','w+') as file:
 				file.write(compiled_frames_file)
 				file.close()
 
