@@ -15,6 +15,11 @@ import os, sys, datetime
 # Input format - 00000000: 4448 4653 342e 3100 0000 0000 0000 0000  DHFS4.1.........
 #
 #
+# TENTAR CRIAR ARQUIVO FORMATO BINARIO
+# Renomear o arquivo de quadros gerado pelo timestamp
+# separar também pelo canal (câmera)
+# pegar o fim do arquivo dav + 4 bytes equivalentes ao tamanho do quadro usados no codec
+#
 if sys.argv and len(sys.argv) > 0:
 	options = {
 		'input_file_name':str(sys.argv[1]),
@@ -56,13 +61,11 @@ if sys.argv and len(sys.argv) > 0:
 					current_file_str = str(array.pop())
 					current_file_bytes = " ".join(array)
 					bytes_no_space = "".join(array)
-
 					add_frame = False
 					append_file = False
 					if HEADER_BYTE in bytes_no_space:
 						file_in_progress = True
 						add_frame = True
-
 					elif END_BYTE in bytes_no_space:
 						if file_in_progress:
 							file_in_progress = False
