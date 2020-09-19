@@ -98,13 +98,13 @@ if sys.argv and len(sys.argv) > 0:
 							if key in incomplete_pending_to_extract:
 								ind_l = incomplete_pending_to_extract[key]
 								frame_params.update({
-									key : ind_l[0] + bytes_no_space[0,ind_l[1]],
+									key : ind_l[0] + bytes_no_space[0:ind_l[1]],
 								})
 
 							elif key in pending_to_extract:
 								ind_l = pending_to_extract[key]
 								frame_params.update({
-									key : bytes_no_space[ind_l[0],ind_l[1]]
+									key : bytes_no_space[ind_l[0]:ind_l[1]]
 								})
 
 						incomplete_pending_to_extract = {}
@@ -140,10 +140,10 @@ if sys.argv and len(sys.argv) > 0:
 						desc = total - current_padding
 
 						frame_params.update({
-							'current_byte_frame_type' :  bytes_no_space[8 - desc, (10 - total) + current_padding],
-							'current_byte_channel' : bytes_no_space[12 - desc ,(14 - total) + current_padding ],
-							'current_byte_id_seq' : bytes_no_space[16 - desc,(24 - total) + current_padding],
-							'current_byte_size' : bytes_no_space[24 - desc,(32 - total) + current_padding],
+							'current_byte_frame_type' :  bytes_no_space[8 - desc : (10 - total) + current_padding],
+							'current_byte_channel' : bytes_no_space[12 - desc  :(14 - total) + current_padding ],
+							'current_byte_id_seq' : bytes_no_space[16 - desc :(24 - total) + current_padding],
+							'current_byte_size' : bytes_no_space[24 - desc :(32 - total) + current_padding],
 						})
 
 						last_indx = (32 - total) + current_padding
@@ -207,8 +207,8 @@ if sys.argv and len(sys.argv) > 0:
 
 									if bytes_no_space[c[1]:c[2]]:
 										frame_params.update({c[0] : bytes_no_space[c[1]:c[2]]})
-									elif bytes_no_space[c[1]:c[32]]:
-										added_v = bytes_no_space[c[1]:c[32]]
+									elif bytes_no_space[c[1]:32]:
+										added_v = bytes_no_space[c[1]:32]
 										diff_v = c[2] - c[1]
 										pend_v = diff_v - len(added_v)
 										incomplete_pending_to_extract.update({
@@ -220,8 +220,8 @@ if sys.argv and len(sys.argv) > 0:
 										c_padding += c[2] - c[1]
 
 								pending_to_extract.update({
-									'current_byte_time',[0 + c_padding,8 + c_padding],
-									'current_byte_time_sec',[8 + c_padding,12 + c_padding],
+									'current_byte_time':[0 + c_padding,8 + c_padding],
+									'current_byte_time_sec':[8 + c_padding,12 + c_padding],
 								})
 
 						except ValueError as e:
@@ -265,17 +265,24 @@ if sys.argv and len(sys.argv) > 0:
 						compiled_frames_file += str("%s\n" % current_file_frames)
 						if current_frames_file:
 
+							print(frame_params)
+
+							_id_seq = int(frame_params['current_byte_id_seq'], 16) if frame_params['current_byte_id_seq'] else ''
+							_time = int(frame_params['current_byte_time'], 16) if frame_params['current_byte_time'] else ''
+							_time_sec = int(frame_params['current_byte_time_sec'], 16) if frame_params['current_byte_time_sec'] else ''
+							_size = int(frame_params['current_byte_size'], 16) if frame_params['current_byte_size'] else ''
+
 							ff_name = 'frame%s.%s%s.DAT' % (
-								int(frame_params['current_byte_id_seq'], 16),
-								int(frame_params['current_byte_time'], 16),
-								int(frame_params['current_byte_time_sec'], 16)
+								_id_seq,
+								_time,
+								_time_sec,
 							)
 							print('[%s] ...Saving %s ID:%s Type:%s Size:%s' % (
 								datetime.datetime.now(),
 								ff_name,
-								int(frame_params['current_byte_id_seq'], 16),
+								_id_seq,
 								frame_params['current_byte_frame_type'],
-								int(frame_params['current_byte_size'], 16),
+								_size,
 							))
 							num_recovered_frames += 1
 							# with open(options['output_folder'] + ff_name,'wb') as file:
