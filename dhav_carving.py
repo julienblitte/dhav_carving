@@ -205,10 +205,10 @@ if sys.argv and len(sys.argv) > 0:
 									['current_byte_id_seq',16 + h_pos,24 + h_pos],
 									['current_byte_size',24 + h_pos,32 + h_pos] ]:
 
-									if bytes_no_space[c[1],c[2]]:
-										frame_params.update({c[0] : bytes_no_space[c[1],c[2]]})
-									elif bytes_no_space[c[1],c[32]]:
-										added_v = bytes_no_space[c[1],c[32]]
+									if bytes_no_space[c[1]:c[2]]:
+										frame_params.update({c[0] : bytes_no_space[c[1]:c[2]]})
+									elif bytes_no_space[c[1]:c[32]]:
+										added_v = bytes_no_space[c[1]:c[32]]
 										diff_v = c[2] - c[1]
 										pend_v = diff_v - len(added_v)
 										incomplete_pending_to_extract.update({
