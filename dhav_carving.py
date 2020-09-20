@@ -11,7 +11,8 @@ import os, sys, datetime
 #     http://www.apache.org/licenses/LICENSE-2.0
 ######################################################################################
 #
-# - Implementar a captura do footer
+# - Implementar a captura do footer dos 4 bytes restantes
+# - Ver timestamp correto
 #
 if sys.argv and len(sys.argv) > 0:
 	options = {
@@ -45,9 +46,7 @@ if sys.argv and len(sys.argv) > 0:
 
 		HEADER_BYTE = '44484156'
 		END_BYTE = '64686176'
-		TYPE_AUDIO = 'f1'
 		TYPE_MAIN = 'fd'
-		TYPE_COMPL = 'fc'
 
 		h_pos = None
 		file_in_progress = False
@@ -133,17 +132,6 @@ if sys.argv and len(sys.argv) > 0:
 						searching_incomplete_end = False
 
 					if END_BYTE in bytes_no_space or find_end_incomplete:
-						#
-						#
-						# TODO
-						# se na mesma linha tive rum fechamento e uma abertura
-						# conseguir extrair os dois arquivos
-						#
-						# os 4 bytes após o dhav no rodapé são referentes ao tamanho do quadro (mesmo 
-						# valor do campo tamanho do quadro encontrado no cabeçalho) e são utilizados 
-						# pela ferramenta FFPLAY na reprodução dos vídeos,
-						#
-						#
 						if file_in_progress:
 							if frame_params['current_byte_frame_type'] == TYPE_MAIN:
 								if insert_when_find_type:
@@ -172,9 +160,18 @@ if sys.argv and len(sys.argv) > 0:
 									else:
 										save_path = "%s/channel_%s/" % (options['output_folder'],_channel)
 
-									ff_name = 'frame%s.%s%s.h264' % (
-										_time,
-										_time_sec,
+									int_timestamp = int(frame_params['current_byte_time'],16)
+									if int_timestamp and len(str(int_timestamp)) < 9:
+										while len(str(int_timestamp)) < 9:
+											stmp = "%s0" % int_timestamp
+											int_timestamp = int(stmp)
+									elif int_timestamp and len(str(int_timestamp)) > 9:
+										int_timestamp = int(str(int_timestamp)[0:9])
+
+									d = datetime.datetime.fromtimestamp(int_timestamp)
+
+									ff_name = 'frame%s.%s.h264' % (
+										d.strftime("%Y_%m_%d_%H_%M_%S"),
 										_id_seq,
 									)
 									print('[%s] ...Saving %s ID:%s Type:%s Size:%s' % (
