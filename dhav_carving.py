@@ -11,12 +11,7 @@ import os, sys, datetime
 #     http://www.apache.org/licenses/LICENSE-2.0
 ######################################################################################
 #
-# - Corrigir erros do header
 # - Implementar a captura do footer
-# - Implementar as regras de salvar por canal
-# - Implementar a regra pra permitir apenas quadros principais
-# - Salvar formato binário
-# - Teste com ffplay
 #
 if sys.argv and len(sys.argv) > 0:
 	options = {
@@ -58,6 +53,10 @@ if sys.argv and len(sys.argv) > 0:
 		file_in_progress = False
 		check_dhav_header = False
 		process_incomplete_header = False
+		blockc_find_h = False
+		insert_when_find_type = False
+		searching_incomplete_end = False
+		created_channel_folders = []
 
 		frame_params = {
 			'current_byte_header':'',
@@ -67,7 +66,11 @@ if sys.argv and len(sys.argv) > 0:
 			'current_byte_size':'',
 			'current_byte_time':'',
 			'current_byte_time_sec':'',
+			'current_byte_end':'',
 		}
+
+		pending_to_extract = {}
+		incomplete_pending_to_extract = {}
 
 		for current_line in f__content__.split('\n'):
 			if current_line:
@@ -75,15 +78,18 @@ if sys.argv and len(sys.argv) > 0:
 				if array and len(array) > 0:
 					current_file_code = str(array.pop(0)).replace(' ','')
 					# current_file_code = str(array.pop(0)).replace(':','').replace(' ','')
+
 					current_file_str = str(array.pop())
 					current_file_bytes = " ".join(array)
-					bytes_no_space = "".join(array)
+					bytes_no_space = "".join(array)[0:32]
+
+					try:
+						if not file_in_progress and int(bytes_no_space) <= 0:
+							continue
+					except:
+						pass
 
 					add_frame = False
-					append_file = False
-
-					pending_to_extract = {}
-					incomplete_pending_to_extract = {}
 
 					if pending_to_extract or incomplete_pending_to_extract:
 						for key in [
@@ -93,7 +99,8 @@ if sys.argv and len(sys.argv) > 0:
 							'current_byte_id_seq',
 							'current_byte_size',
 							'current_byte_time',
-							'current_byte_time_sec',]:
+							'current_byte_time_sec',
+							'current_byte_end',]:
 
 							if key in incomplete_pending_to_extract:
 								ind_l = incomplete_pending_to_extract[key]
@@ -117,7 +124,15 @@ if sys.argv and len(sys.argv) > 0:
 							current_temp_frame_buffer = ""
 						check_dhav_header = False
 
-					if END_BYTE in bytes_no_space:
+					find_end_incomplete = False
+					if searching_incomplete_end:
+						if frame_params['current_byte_end'] == END_BYTE:
+							find_end_incomplete = True
+						else:
+							frame_params.update({'current_byte_end':''})
+						searching_incomplete_end = False
+
+					if END_BYTE in bytes_no_space or find_end_incomplete:
 						#
 						#
 						# TODO
@@ -128,12 +143,99 @@ if sys.argv and len(sys.argv) > 0:
 						# valor do campo tamanho do quadro encontrado no cabeçalho) e são utilizados 
 						# pela ferramenta FFPLAY na reprodução dos vídeos,
 						#
+						#
 						if file_in_progress:
-							file_in_progress = False
-							add_frame = True
-							append_file = True
-						else:
-							current_file_frames = ""
+							if frame_params['current_byte_frame_type'] == TYPE_MAIN:
+								if insert_when_find_type:
+									current_file_frames += current_temp_frame_buffer
+									insert_when_find_type = False
+								current_file_frames += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+
+							current_frames_file  += str("%s\n" % current_file_frames)
+							compiled_frames_file += str("%s\n" % current_file_frames)
+							if current_frames_file:
+								_id_seq = int(frame_params['current_byte_id_seq'], 16) if frame_params['current_byte_id_seq'] else ''
+								_time = int(frame_params['current_byte_time'], 16) if frame_params['current_byte_time'] else ''
+								_time_sec = int(frame_params['current_byte_time_sec'], 16) if frame_params['current_byte_time_sec'] else ''
+								_size = int(frame_params['current_byte_size'], 16) if frame_params['current_byte_size'] else ''
+
+								if _size:
+									save_path = None
+									_channel = frame_params['current_byte_channel']
+									if not _channel in created_channel_folders:
+										try:
+											save_path = "%s/channel_%s/" % (options['output_folder'],_channel)
+											os.makedirs(save_path)
+											created_channel_folders.append(_channel)
+										except:
+											pass
+									else:
+										save_path = "%s/channel_%s/" % (options['output_folder'],_channel)
+
+									ff_name = 'frame%s.%s%s.h264' % (
+										_time,
+										_time_sec,
+										_id_seq,
+									)
+									print('[%s] ...Saving %s ID:%s Type:%s Size:%s' % (
+										datetime.datetime.now(),
+										ff_name,
+										_id_seq,
+										frame_params['current_byte_frame_type'],
+										_size,
+									))
+									num_recovered_frames += 1
+
+									if not save_path:
+										save_path = options['output_folder'] + '/'
+									with open(save_path + ff_name,'w+b') as file:
+										file.write(current_frames_file.encode('ascii'))
+										file.close()
+
+						blockc_find_h = False
+						current_file_frames = ''
+						current_frames_file = ''
+						current_temp_frame_buffer = ''
+						current_padding = 0
+						insert_when_find_type = False
+						h_pos = None
+						frame_params = {
+							'current_byte_header':'',
+							'current_byte_frame_type':'',
+							'current_byte_channel':'',
+							'current_byte_id_seq':'',
+							'current_byte_size':'',
+							'current_byte_time':'',
+							'current_byte_time_sec':'',
+							'current_byte_end':'',
+						}
+
+					elif '646861' == bytes_no_space[26:32] and not blockc_find_h and not file_in_progress:
+						check_dhav_header = True
+						incomplete_pending_to_extract.update({
+							'current_byte_end' : ['646861', 2]
+						})
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+						current_padding = 2
+						searching_incomplete_end = True
+
+					elif '6468' == bytes_no_space[28:32] and not blockc_find_h and not file_in_progress:
+						check_dhav_header = True
+						incomplete_pending_to_extract.update({
+							'current_byte_end' : ['6468', 4]
+						})
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+						current_padding = 4
+						searching_incomplete_end = True
+
+					elif '64' == bytes_no_space[30:32] and not blockc_find_h and not file_in_progress:
+						check_dhav_header = True
+						incomplete_pending_to_extract.update({
+							'current_byte_end' : ['64', 6]
+						})
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+						current_padding = 6
+						searching_incomplete_end = True
 
 					if process_incomplete_header:
 						total = 8
@@ -172,7 +274,8 @@ if sys.argv and len(sys.argv) > 0:
 								'current_byte_time_sec': [6,10],
 							})
 
-						current_file_frames += current_temp_frame_buffer
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+						insert_when_find_type = True
 
 						file_in_progress = True
 						process_incomplete_header = False
@@ -180,6 +283,8 @@ if sys.argv and len(sys.argv) > 0:
 					elif HEADER_BYTE in bytes_no_space:
 						file_in_progress = True
 						add_frame = True
+						blockc_find_h = True
+						searching_incomplete_end = False
 
 						try:
 							h_pos = bytes_no_space.index(HEADER_BYTE)
@@ -227,25 +332,7 @@ if sys.argv and len(sys.argv) > 0:
 						except ValueError as e:
 							print('Cannot extract the header params for: '+str(current_line))
 
-					elif '44' == bytes_no_space[30:32]:
-						check_dhav_header = True
-						incomplete_pending_to_extract.update({
-							'current_byte_header' : ['44', 6]
-						})
-						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (
-							current_file_code,'0000 0000 0000 0000 0000 0000 0000 0044',current_file_str))
-						current_padding = 6
-
-					elif '4448' == bytes_no_space[28:32]:
-						check_dhav_header = True
-						incomplete_pending_to_extract.update({
-							'current_byte_header' : ['4448', 4]
-						})
-						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (
-							current_file_code,'0000 0000 0000 0000 0000 0000 0000 4448',current_file_str))
-						current_padding = 4
-
-					elif '444841' == bytes_no_space[26:32]:
+					elif '444841' == bytes_no_space[26:32] and not blockc_find_h and not file_in_progress:
 						check_dhav_header = True
 						incomplete_pending_to_extract.update({
 							'current_byte_header' : ['444841', 2]
@@ -254,66 +341,63 @@ if sys.argv and len(sys.argv) > 0:
 							current_file_code,'0000 0000 0000 0000 0000 0000 0044 4841',current_file_str))
 						current_padding = 2
 
+					elif '4448' == bytes_no_space[28:32] and not blockc_find_h and not file_in_progress:
+						check_dhav_header = True
+						incomplete_pending_to_extract.update({
+							'current_byte_header' : ['4448', 4]
+						})
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (
+							current_file_code,'0000 0000 0000 0000 0000 0000 0000 4448',current_file_str))
+						current_padding = 4
+
+					elif '44' == bytes_no_space[30:32] and not blockc_find_h and not file_in_progress:
+						check_dhav_header = True
+						incomplete_pending_to_extract.update({
+							'current_byte_header' : ['44', 6]
+						})
+						current_temp_frame_buffer += str('%s\t%s\t%s\n' % (
+							current_file_code,'0000 0000 0000 0000 0000 0000 0000 0044',current_file_str))
+						current_padding = 6
+
 					elif file_in_progress:
 						add_frame = True
 
 					if add_frame:
-						current_file_frames += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
 
-					if append_file:
-						current_frames_file  += str("%s\n" % current_file_frames)
-						compiled_frames_file += str("%s\n" % current_file_frames)
-						if current_frames_file:
-
-							print(frame_params)
-
-							_id_seq = int(frame_params['current_byte_id_seq'], 16) if frame_params['current_byte_id_seq'] else ''
-							_time = int(frame_params['current_byte_time'], 16) if frame_params['current_byte_time'] else ''
-							_time_sec = int(frame_params['current_byte_time_sec'], 16) if frame_params['current_byte_time_sec'] else ''
-							_size = int(frame_params['current_byte_size'], 16) if frame_params['current_byte_size'] else ''
-
-							ff_name = 'frame%s.%s%s.DAT' % (
-								_id_seq,
-								_time,
-								_time_sec,
-							)
-							print('[%s] ...Saving %s ID:%s Type:%s Size:%s' % (
-								datetime.datetime.now(),
-								ff_name,
-								_id_seq,
-								frame_params['current_byte_frame_type'],
-								_size,
-							))
-							num_recovered_frames += 1
-							# with open(options['output_folder'] + ff_name,'wb') as file:
-							with open(options['output_folder'] + ff_name,'w+') as file:
-								file.write(current_frames_file)
-								file.close()
-
-						current_file_frames = ''
-						current_frames_file = ''
-						current_temp_frame_buffer = ''
-						current_padding = 0
-						h_pos = None
-						frame_params = {
-							'current_byte_header':'',
-							'current_byte_frame_type':'',
-							'current_byte_channel':'',
-							'current_byte_id_seq':'',
-							'current_byte_size':'',
-							'current_byte_time':'',
-							'current_byte_time_sec':'',
-						}
+						if frame_params['current_byte_frame_type'] == TYPE_MAIN:
+							if insert_when_find_type:
+								current_file_frames += current_temp_frame_buffer
+								insert_when_find_type = False
+							current_file_frames += str('%s\t%s\t%s\n' % (current_file_code,current_file_bytes,current_file_str))
+						else:
+							blockc_find_h = False
+							current_file_frames = ''
+							current_frames_file = ''
+							current_temp_frame_buffer = ''
+							current_padding = 0
+							insert_when_find_type = False
+							h_pos = None
+							frame_params = {
+								'current_byte_header':'',
+								'current_byte_frame_type':'',
+								'current_byte_channel':'',
+								'current_byte_id_seq':'',
+								'current_byte_size':'',
+								'current_byte_time':'',
+								'current_byte_time_sec':'',
+								'current_byte_end':'',
+							}
+							continue
 
 		if compiled_frames_file:
 			print('[%s] ...Saving compiled_frames.txt' % datetime.datetime.now())
 			# with open(options['output_folder'] + 'compiled_frames.DAT','wb') as file:
-			with open(options['output_folder'] + 'compiled_frames.DAT','w+') as file:
+			with open(options['output_folder'] + '/compiled_frames.h264','w+') as file:
 				file.write(compiled_frames_file)
 				file.close()
 
 	print('[%s] ...Writing output files on %s' % (datetime.datetime.now(), options['output_folder']))
-	with open(options['output_folder'] + 'result.txt','w+') as file:
+	with open(options['output_folder'] + '/result.txt','w+') as file:
 		result_content = "|DVR|Num Frames|\n"
 		result_content += "|%s|%s|\n" % (dvr_code,num_recovered_frames)
 		file.write(result_content)
