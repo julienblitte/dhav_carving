@@ -10,10 +10,6 @@ import os, sys, datetime
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 ######################################################################################
-#
-# - Implementar a captura do footer dos 4 bytes restantes
-# - Ver timestamp correto
-#
 if sys.argv and len(sys.argv) > 0:
 	options = {
 		'input_file_name':str(sys.argv[1]),
@@ -76,8 +72,6 @@ if sys.argv and len(sys.argv) > 0:
 				array = current_line.split(' ')
 				if array and len(array) > 0:
 					current_file_code = str(array.pop(0)).replace(' ','')
-					# current_file_code = str(array.pop(0)).replace(':','').replace(' ','')
-
 					current_file_str = str(array.pop())
 					current_file_bytes = " ".join(array)
 					bytes_no_space = "".join(array)[0:32]
@@ -388,8 +382,7 @@ if sys.argv and len(sys.argv) > 0:
 
 		if compiled_frames_file:
 			print('[%s] ...Saving compiled_frames.txt' % datetime.datetime.now())
-			# with open(options['output_folder'] + 'compiled_frames.DAT','wb') as file:
-			with open(options['output_folder'] + '/compiled_frames.h264','w+') as file:
+			with open(options['output_folder'] + '/compiled_frames.h264','wb') as file:
 				file.write(compiled_frames_file)
 				file.close()
 
