@@ -4,7 +4,7 @@ DVR - DHAV Carving
 
 1 - Execute the following command:
 `
-$ dd if=hd502hi.dd bs=4096 skip=0000 2>/dev/null | xxd > result_1.txt
+$ dd if=image1.dd bs=4096 skip=0000 2>/dev/null | xxd > result_1.txt
 `
 
 Something like that will be generated into the file result_1.txt:
