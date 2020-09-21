@@ -1,5 +1,7 @@
 # DHAV Carving Script
 
+DVR - DHAV Carving
+
 1 - Execute the following command:
 `
 $ dd if=hd502hi.dd bs=4096 skip=0000 2>/dev/null | xxd > result_1.txt
