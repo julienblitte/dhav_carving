@@ -18,5 +18,5 @@ $ python dhav_carving.py result_1.txt result_1
 `
 
 Params:
-* Path of input file
-* Result folder path
+. Path of input file
+. Result folder path
